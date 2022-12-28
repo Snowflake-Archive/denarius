@@ -1,6 +1,8 @@
 local config = require("config")
 local design = require("design")
 local krist = require("krist")
+local sha256 = require("sha256")
+local includes = require("includes")
 local strings = require("cc.strings")
 
 local node = config.node
@@ -9,13 +11,74 @@ local ws
 local stock = {}
 
 local recheckStockTimer = os.startTimer(30)
-local kclient = krist:new({}, config.krist.privatekey, {}, true, config.krist.node, config.debug)
 
 local origPullEvent = os.pullEvent
 os.pullEvent = os.pullEventRaw
 
 local headerLogoDrawFunc
 local headerLogoLines
+
+local pkey = ""
+
+local function warn(...)
+  term.setTextColor(colors.yellow)
+  print(...)
+  term.setTextColor(colors.white)
+end
+
+local function success(...)
+  term.setTextColor(colors.green)
+  print(...)
+  term.setTextColor(colors.white)
+end
+
+-- Config check: krist
+if config.krist.privatekey then
+  if config.krist.privatekey:len() < 64 or config.krist.privatekey:len() > 68 then
+    error("config error: invalid privatekey (must be rawkey format).")
+  end
+
+  pkey = config.krist.privatekey
+elseif config.krist.walletpassword then
+  pkey = sha256("KRISTWALLET" .. config.krist.walletpassword) .. "-000"
+end
+
+-- Config check: peripherals
+for i, v in pairs(config.peripherals.chests) do
+  if peripheral.wrap(v) == nil then error("config error: chest not found: " .. v) end
+end
+
+-- Config check: redstone
+if config.heartbeat.side ~= "top" and
+   config.heartbeat.side ~= "back" and
+   config.heartbeat.side ~= "bottom" and
+   config.heartbeat.side ~= "front" and
+   config.heartbeat.side ~= "left" and
+   config.heartbeat.side ~= "right" then
+  error("config error: invalid heartbeat side: " .. config.heartbeat.side)
+end
+
+-- Config check: stock
+if config.stock.order then
+  for i, v in pairs(config.stock.order) do
+    if config.stock.items == nil then 
+      warn("config warning: " .. v .. " exists in order, but not in items, it will be ignored.")
+    end
+  end
+
+  for i, v in pairs(config.stock.items) do
+    if includes(config.stock.order, i) == false then 
+      warn("config warning: " .. i .. " exists in items, but not in order, it will be ignored.")
+    end
+  end
+end
+
+-- Config check: sound effects
+if config.soundeffects.enabled and peripheral.wrap(config.soundeffects.speaker) == nil then
+  error("config error: speaker not found")
+end
+
+local kclient = krist:new({}, pkey, {}, true, config.krist.node, config.debug)
 
 if design.header.logo then
   local f = fs.open(design.header.logo.path, "r")
@@ -68,10 +131,18 @@ local function scan()
     local items = peripheral.call(side, "list")
 
     for i, v in pairs(items) do
-      if stock[v.name] then
-        stock[v.name] = stock[v.name] + v.count
+      if v.nbt then 
+        if stock[v.name .. "+nbt" .. v.nbt] then
+          stock[v.name .. "+nbt" .. v.nbt] = stock[v.name .. "+nbt" .. v.nbt] + v.count
+        else
+          stock[v.name .. "+nbt" .. v.nbt] = v.count
+        end
       else
-        stock[v.name] = v.count
+        if stock[v.name] then
+          stock[v.name] = stock[v.name] + v.count
+        else
+          stock[v.name] = v.count
+        end
       end
     end
   end
@@ -210,38 +281,46 @@ local function draw(state)
     for _, i in ipairs(order) do
       local v = config.stock.items[i]
 
-      m.setCursorPos(2, y)
-      local stock = stock[v.name] or 0
-      if stock > 0 or config.display.showOutOfStockItems then
-        local rowType = idx % 2 == 0 and rowB or rowA
-
-        for i = 1, 1 + rowType.padding * 2 do
-          m.setCursorPos(1, i + y - 1)
-          m.setBackgroundColor(rowType.background)
-          m.clearLine()
+      if v then
+        m.setCursorPos(2, y)
+        local stockValue = 0
+        if v.nbt then
+          stockValue = stock[v.name .. "+nbt" .. v.nbt] or 0
+        else
+          stockValue = stock[v.name] or 0
         end
 
-        if stock == 0 then m.setTextColor(rowType.stockEmpty)
-        elseif stock <= 10 then m.setTextColor(rowType.stockCritical)
-        elseif stock <= 20 then m.setTextColor(rowType.stockLow)
-        else m.setTextColor(rowType.stock) end
+        if stockValue > 0 or config.display.showOutOfStockItems then
+          local rowType = idx % 2 == 0 and rowB or rowA
 
-        m.setCursorPos(2, y + rowType.padding)
-        m.write(tostring(stock))
+          for i = 1, 1 + rowType.padding * 2 do
+            m.setCursorPos(1, i + y - 1)
+            m.setBackgroundColor(rowType.background)
+            m.clearLine()
+          end
 
-        m.setTextColor(colors.gray)
-        m.setCursorPos(9, y + rowType.padding)
-        m.write(v.title)
+          if stockValue == 0 then m.setTextColor(rowType.stockEmpty)
+          elseif stockValue <= 10 then m.setTextColor(rowType.stockCritical)
+          elseif stockValue <= 20 then m.setTextColor(rowType.stockLow)
+          else m.setTextColor(rowType.stock) end
 
-        m.setCursorPos(w - 5, y + rowType.padding)
-        m.write("K" .. tostring(v.price))
+          m.setCursorPos(2, y + rowType.padding)
+          m.write(tostring(stockValue))
 
-        m.setCursorPos(w - 5 - maxw, y + rowType.padding)
-        m.write(i .. "@" .. config.krist.name)
+          m.setTextColor(colors.gray)
+          m.setCursorPos(9, y + rowType.padding)
+          m.write(v.title)
 
-        y = y + (2 * rowType.padding) + 1
+          m.setCursorPos(w - 5, y + rowType.padding)
+          m.write("K" .. tostring(v.price))
 
-        idx = idx + 1
+          m.setCursorPos(w - 5 - maxw, y + rowType.padding)
+          m.write(i .. "@" .. config.krist.name)
+
+          y = y + (2 * rowType.padding) + 1
+
+          idx = idx + 1
+        end
       end
     end
 
@@ -331,8 +410,7 @@ local function executeTransaction(e)
   sfx("allItemsDispensed")
   scan()
   draw()
-  print("Dispensed all " .. dispense
-   .. " items")
+  success("Dispensed all " .. dispense .. " items")
 
   -- If items are reamaining, then we refund the player
   if remainingToDispense >= 1 then
@@ -361,8 +439,11 @@ xpcall(function()
 
   local function startWebsocket()
     wsSend("startup", (":white_check_mark: %s has started up!"):format(config.display.shopName))
-    print("Connected to websocket! Denarious is ready.")
+    success("Connected to websocket!")
+    print("Address is " .. kclient.address)
+    term.setTextColor(colors.lightGray)
     print("MOTD:", kclient.misc:getMotd().motd)
+    term.setTextColor(colors.white)
     kclient:start()
   end
 

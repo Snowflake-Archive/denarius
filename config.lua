@@ -9,11 +9,15 @@ return {
   },
 
   krist = {
-    -- The name you would like to use for this shop.
-    name = "junk.kst",
+    -- The name you would like to use for this shop. Should contain .kst
+    name = "",
 
     -- The private key for the address above. This MUST be in raw-key format.
     privatekey = "",
+
+    -- If you choose to use a Kristwallet password instead of a privatekey,
+    -- comment out the private key line and uncomment this line, and add your password.
+    -- walletpassword = "DDUfciYUBrFjL3T36Dml99-acZcxitOk",
 
     -- Advanced: Krist node URL. Requires trailing /
     node = "https://krist.dev/",
@@ -21,18 +25,18 @@ return {
 
   peripherals = {
     -- Chests to search for items
-    chests = {""},
+    chests = {"minecraft:chest_0"},
 
     -- The network name of the turtle
-    networkName = "",
+    networkName = "turtle_0",
 
     -- The network name of the monitor to display the shop information on
-    monitorSide = "left",
+    monitorSide = "bottom",
   },
 
   heartbeat = {
     -- Enable heartbeat
-    enable = true,
+    enable = false,
 
     -- The side that the redstone lamp (or other) is on.
     side = "top",
@@ -43,7 +47,7 @@ return {
 
   stock = {
     -- The order that items will be rendered in. If you don't want to fiddle with this, you can comment out this line.
-    order = {"dia", "pc", "oak", "stone"},
+    order = {"dia", "pc", "prot4", "mending", "oak", "stone"},
 
     -- Items you're selling
     items = {
@@ -70,13 +74,26 @@ return {
         title = "Stone",
         name = "minecraft:stone",
         price = 1
+      },
+      mending = {
+        title = "Mending Book",
+        name = "minecraft:enchanted_book",
+        price = 1,
+        -- NBT tags are also supported.
+        nbt = "704a1bcdf9953c791651a77b1fe78891"
+      },
+      prot4 = {
+        title = "Protection 4 Book",
+        name = "minecraft:enchanted_book",
+        price = 1,
+        nbt = "574661995e9d45223026a14807eedc0c"
       }
     },
   },
 
   webhook = {
-    -- A url to a Discord webhook to send logs.
-    url = "",
+    -- A url to a Discord webhook to send logs. Uncomment this line to enable.
+    -- url = "",
 
     -- Your Discord ID. This will be pinged when an error occurs.
     ownerUserID = "",
@@ -100,7 +117,7 @@ return {
 
   -- Advanced: Sound effects to be played when purchases commence
   soundeffects = {
-    enabled = true,
+    enabled = false,
     speaker = "speaker_0",
     purchaseFailed = "minecraft:entity.villager.no",
     purchaseSuccess = "minecraft:entity.villager.yes",
@@ -111,12 +128,12 @@ return {
   -- Profit sharing
   profitSharing = {
     -- The address to send
-    ["k000000000"] = {
+    -- ["k9kig3qq9n"] = {
       -- Percentage
-      percent = 0,
+    --  percent = 80,
       -- Metadata (for donate meta requirements)
-      meta = "cool=awesome"
-    }
+    --  meta = "cool=awesome"
+    --}
   },
 
   -- Advanced: Krist API debug

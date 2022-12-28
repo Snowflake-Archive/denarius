@@ -2,7 +2,7 @@
 
 Denarius is a highly-configurable Krist-based shop for modern ComputerCraft. It allows you to easily set up your own shop to sell items in modern ComputerCraft.
 
-## Basic Setup
+## Setup
 
 Download the `denarius.lua`, `design.lua` and `config.lua` files:
 
@@ -25,3 +25,6 @@ Denarius uses a currently work-in-progress Krist wrapped written by me. As state
 ## Notice
 
 This program is currently in beta, and problems may arise. If any do, please contact znepb#1234 on Discord.
+
+## Attributions
+[sha256 by GravityScore](https://www.computercraft.info/forums2/index.php?/topic/8169-sha-256-in-pure-lua/)
