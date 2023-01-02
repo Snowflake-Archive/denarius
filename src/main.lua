@@ -61,13 +61,13 @@ end
 -- Config check: stock
 if config.stock.order then
   for i, v in pairs(config.stock.order) do
-    if config.stock.items == nil then 
+    if config.stock.items == nil then
       warn("config warning: " .. v .. " exists in order, but not in items, it will be ignored.")
     end
   end
 
   for i, v in pairs(config.stock.items) do
-    if includes(config.stock.order, i) == false then 
+    if includes(config.stock.order, i) == false then
       warn("config warning: " .. i .. " exists in items, but not in order, it will be ignored.")
     end
   end
@@ -131,18 +131,15 @@ local function scan()
     local items = peripheral.call(side, "list")
 
     for i, v in pairs(items) do
-      if v.nbt then 
-        if stock[v.name .. "+nbt" .. v.nbt] then
-          stock[v.name .. "+nbt" .. v.nbt] = stock[v.name .. "+nbt" .. v.nbt] + v.count
-        else
-          stock[v.name .. "+nbt" .. v.nbt] = v.count
-        end
+      local id = v.name
+      if v.nbt then
+        id = v.name .. "+nbt" .. v.nbt
+      end
+
+      if stock[id] then
+        stock[id] = stock[id] + v.count
       else
-        if stock[v.name] then
-          stock[v.name] = stock[v.name] + v.count
-        else
-          stock[v.name] = v.count
-        end
+        stock[id] = v.count
       end
     end
   end
@@ -159,7 +156,7 @@ local function draw(state)
 
   -- Main shop draw
   for pallete, color in pairs(design.colours) do
-    m.setPaletteColour(pallete, color)  
+    m.setPaletteColour(pallete, color)
   end
 
   -- Basic States
@@ -358,6 +355,9 @@ local function executeTransaction(e)
 
   if reader:get("return") then returnaddr = reader:get("return") end
 
+  local name = (item.nbt and item.name .. "+nbt" .. item.nbt or item.name)
+  print(name)
+
   -- Check if item is valid
   if item == nil then
     sfx("purchaseFailed")
@@ -368,7 +368,7 @@ local function executeTransaction(e)
   end
 
   -- Check if item is in stock
-  if stock[item.name] == nil then
+  if stock[name] == nil then
     sfx("purchaseFailed")
     print(slug .. " requested, out of stock")
     wsSend("refund", (":warning: Refunding %s %d Krist, %s is out of stock"):format(returnaddr, value, item.title))
@@ -377,23 +377,23 @@ local function executeTransaction(e)
   end
 
   print("Purchase received!", returnaddr, "purchasing", slug, "for", value)
-    
+
   -- Purchase successful!
   sfx("purchaseSuccess")
 
   local amount = math.floor(value / item.price) -- Amount of items that the player requested
-  local available = stock[item.name] -- Amount of items the player requested
+  local available = stock[name] -- Amount of items the player requested
   local dispense = amount -- Amount of items to dispense
   local returnAmount = math.floor(value - amount * item.price) -- Amount of money to return to player
   local returnMessage = ""
   local remainingToDispense = dispense
 
-  wsSend("sale", (":moneybag: %s purchased %d %s for %d Krist. Stock of this item is now %d."):format(returnaddr, remainingToDispense, item.name, value, available - dispense))
+  wsSend("sale", (":moneybag: %s purchased %d %s for %d Krist. Stock of this item is now %d."):format(returnaddr, remainingToDispense, item.title, value, available - dispense))
 
   -- Dispense items
   for _, c in pairs(config.peripherals.chests) do
     for s, v in pairs(peripheral.call(c, "list")) do
-      if v.name == item.name then
+      if v.name == item.name and v.nbt == item.nbt then
         peripheral.call(c, "pushItems", config.peripherals.networkName, s, math.min(v.count, remainingToDispense), 1)
         turtle.select(1)
         turtle.drop(64)
@@ -453,7 +453,7 @@ xpcall(function()
 
       if e[1] == "krist_transaction" and e[2] and e[2].metadata then
         local spent, returnAddr, returnAmount, meta = executeTransaction(e)
-        
+
         if spent and spent > 0 then
           for address, data in pairs(config.profitSharing) do
             local percent = data.percent / 100
@@ -467,7 +467,7 @@ xpcall(function()
           local ok, err = kclient.transactions:make(returnAddr, returnAmount, meta)
           if not ok then
             wsSend(
-              "error", 
+              "error",
               (":warning: Refund Error <@%s>!\nRefunding: %s, Amount: %d, Metadata: %s\n```%s\n%s```"):format(
                 config.webhook.ownerUserId,
                 returnAddr, returnAmount, meta,
@@ -492,18 +492,24 @@ xpcall(function()
   end
 
   local function heartbeat()
-    while true do
-      redstone.setOutput(config.heartbeat.side, true)
-      sleep(config.heartbeat.interval)
-      redstone.setOutput(config.heartbeat.side, false)
-      sleep(config.heartbeat.interval)
-    end
-  end 
+    redstone.setOutput(config.heartbeat.side, true)
+    sleep(config.heartbeat.interval)
+    redstone.setOutput(config.heartbeat.side, false)
+    sleep(config.heartbeat.interval)
+  end
 
-  if config.heartbeat.enable == true then 
-    parallel.waitForAny(startWebsocket, events, heartbeat)
+  local function rescan()
+    while true do
+      sleep(30)
+      scan()
+      draw()
+    end
+  end
+
+  if config.heartbeat.enable == true then
+    parallel.waitForAny(startWebsocket, rescan, events, heartbeat)
   else
-    parallel.waitForAny(startWebsocket, events)
+    parallel.waitForAny(startWebsocket, rescan, events)
   end
 end, function(err)
   kclient:destroy()

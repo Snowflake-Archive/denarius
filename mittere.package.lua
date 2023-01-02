@@ -7,7 +7,7 @@
   rootDir = "src",
   preflight = {},
   initFile = "main.lua",
-  version = "0.1.0",
+  version = "0.2.0",
   outputFile = "denarius.lua",
   postflight = {},
   tasks = {},
