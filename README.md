@@ -1,5 +1,8 @@
 # Denarius
 
+# ARCHIVED - this will no longer receive updates!
+We recommend using [Radon.](https://github.com/Allymonies/Radon)
+
 Denarius is a highly-configurable Krist-based shop for modern ComputerCraft. It allows you to easily set up your own shop to sell items in modern ComputerCraft.
 
 ## Setup
